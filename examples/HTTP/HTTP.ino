@@ -1,7 +1,7 @@
 /**
- * @file MQTT.ino
+ * @file HTTP.ino
  * @author SeanKwok (shaoxiang@m5stack.com)
- * @brief MQTT example
+ * @brief HTTP example
  * @version 0.1
  * @date 2023-10-26
  *
@@ -10,7 +10,7 @@
  * @Platform Version: Arduino M5Stack Board Manager v2.0.7
  * @Dependent Library:
  * M5_Ethernet: https://github.com/m5stack/M5-Ethernet
- * PubSubClient: https://github.com/knolleary/pubsubclient
+ * ArduinoHttpClient: https://github.com/arduino-libraries/ArduinoHttpClient
  * M5Unified: https://github.com/m5stack/M5Unified
  * M5GFX: https://github.com/m5stack/M5GFX
  */
@@ -19,13 +19,11 @@
 #include <M5GFX.h>
 #include <SPI.h>
 #include <M5Module_LAN.h>
-#include <PubSubClient.h>
+#include <ArduinoHttpClient.h>
 
-#define THEME_COLOR  0x0760
-#define PUB_INTERVAL 3000
+#define THEME_COLOR 0x0760
 
-#define PUB_TOPIC "LAN_UPLINK"
-#define SUB_TOPIC "LAN_DOWNLINK"
+#define SERVER "httpbin.org"
 
 uint8_t cs_pin;
 uint8_t rst_pin;
@@ -40,59 +38,9 @@ M5Module_LAN LAN;
 
 M5Canvas canvas(&M5.Display);
 
-// Configure the name and password of the connected wifi and your MQTT Serve
-const char* mqtt_server = "mqtt.m5stack.com";
-
 EthernetClient ethClient;
-PubSubClient client(ethClient);
 
-void callback(char* topic, byte* payload, unsigned int length) {
-    Serial.print("Message arrived [");
-    Serial.print(topic);
-    Serial.print("] ");
-
-    canvas.print("Message arrived [");
-    canvas.print(topic);
-    canvas.print("] ");
-
-    for (int i = 0; i < length; i++) {
-        Serial.print((char)payload[i]);
-        canvas.print((char)payload[i]);
-    }
-    Serial.println();
-    canvas.println();
-    canvas.pushSprite(20, 55);
-}
-
-void reconnect() {
-    // Loop until we're reconnected
-    while (!client.connected()) {
-        Serial.print("Attempting MQTT connection...");
-        // Attempt to connect
-        if (client.connect("arduinoClient")) {
-            M5.Display.fillSmoothRoundRect(2, 2, screen_width - 4, 36, 4,
-                                           THEME_COLOR);
-            M5.Display.drawString("MQTT Connected!", screen_width / 2, 22);
-
-            Serial.println("connected");
-
-            // Once connected, publish an announcement...
-            client.publish(PUB_TOPIC, "hello world");
-            // ... and resubscribe
-            client.subscribe(SUB_TOPIC);
-        } else {
-            M5.Display.fillSmoothRoundRect(2, 2, screen_width - 4, 36, 4,
-                                           THEME_COLOR);
-            M5.Display.drawString("MQTT Failed...", screen_width / 2, 22);
-
-            Serial.print("failed, rc=");
-            Serial.print(client.state());
-            Serial.println(" try again in 5 seconds");
-            // Wait 5 seconds before retrying
-            delay(5000);
-        }
-    }
-}
+HttpClient client = HttpClient(ethClient, SERVER);
 
 void setup() {
     M5.begin();
@@ -155,25 +103,61 @@ void setup() {
     if (Ethernet.linkStatus() == LinkOFF) {
         Serial.println("Ethernet cable is not connected.");
     }
-
-    client.setServer(mqtt_server, 1883);
-    client.setCallback(callback);
 }
 
-long lastTime;
-
 void loop() {
-    if (!client.connected()) {
-        reconnect();
-    }
-    client.loop();
+    M5.Display.fillSmoothRoundRect(2, 2, screen_width - 4, 36, 4, THEME_COLOR);
+    M5.Display.drawString("HTTP GET", screen_width / 2, 22);
 
-    if (millis() - lastTime > PUB_INTERVAL) {
-        lastTime    = millis();
-        String data = "hello world: " + String(millis());
-        client.publish(PUB_TOPIC, data.c_str());
-        canvas.println("pub topic: LAN_UPLINK");
-        canvas.println("data: " + data);
-        canvas.pushSprite(20, 55);
-    }
+    Serial.println("making GET request");
+    canvas.println("making GET request");
+    canvas.pushSprite(20, 55);
+
+    client.get("/get");
+    // read the status code and body of the response
+    int statusCode  = client.responseStatusCode();
+    String response = client.responseBody();
+
+    Serial.print("Status code: ");
+    Serial.println(statusCode);
+    Serial.print("Response: ");
+    Serial.println(response);
+    Serial.println("Wait five seconds");
+
+    canvas.print("Status code: ");
+    canvas.println(statusCode);
+    canvas.print("Response: ");
+    canvas.println(response);
+    canvas.pushSprite(20, 55);
+
+    delay(5000);
+
+    M5.Display.fillSmoothRoundRect(2, 2, screen_width - 4, 36, 4, THEME_COLOR);
+    M5.Display.drawString("HTTP POST", screen_width / 2, 22);
+
+    Serial.println("making POST request");
+    canvas.println("making POST request");
+    canvas.pushSprite(20, 55);
+
+    String contentType = "application/x-www-form-urlencoded";
+    String postData    = "name=Alice&age=12";
+
+    client.post("/post", contentType, postData);
+
+    // read the status code and body of the response
+    statusCode = client.responseStatusCode();
+    response   = client.responseBody();
+
+    Serial.print("Status code: ");
+    Serial.println(statusCode);
+    Serial.print("Response: ");
+    Serial.println(response);
+
+    canvas.print("Status code: ");
+    canvas.println(statusCode);
+    canvas.print("Response: ");
+    canvas.println(response);
+    canvas.pushSprite(20, 55);
+    Serial.println("Wait five seconds");
+    delay(5000);
 }
