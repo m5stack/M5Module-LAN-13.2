@@ -60,7 +60,8 @@ void setup() {
             rst_pin = 0;
             int_pin = 35;
         } break;
-        case m5::board_t::board_M5StackCoreS3: {
+        case m5::board_t::board_M5StackCoreS3:
+        case m5::board_t::board_M5StackCoreS3SE: {
             cs_pin  = 1;
             rst_pin = 0;
             int_pin = 10;
